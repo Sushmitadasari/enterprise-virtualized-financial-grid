@@ -4,7 +4,15 @@ import GridRow from "./GridRow";
 
 const ROW_HEIGHT = 40;
 
-export default function VirtualGrid({ data }) {
+export default function VirtualGrid({
+  data,
+  selectedRows,
+  handleRowClick,
+  pinnedColumns,
+  editingCell,
+  setEditingCell,
+  updateCellValue
+}) {
   const { containerRef, visibleRange, totalHeight } =
     useVirtualScroll(data, ROW_HEIGHT);
 
@@ -21,12 +29,14 @@ export default function VirtualGrid({ data }) {
       data-test-id="grid-scroll-container"
       style={{
         height: "600px",
-        overflowY: "scroll",
+        overflowY: "auto",
         position: "relative"
       }}
     >
+      {/* Sizer element */}
       <div style={{ height: totalHeight }} />
 
+      {/* Visible window */}
       <div
         data-test-id="grid-row-window"
         style={{
@@ -40,6 +50,12 @@ export default function VirtualGrid({ data }) {
             key={row.id}
             row={row}
             rowIndex={start + index}
+            selectedRows={selectedRows}
+            handleRowClick={handleRowClick}
+            pinnedColumns={pinnedColumns}
+            editingCell={editingCell}
+            setEditingCell={setEditingCell}
+            updateCellValue={updateCellValue}
           />
         ))}
       </div>

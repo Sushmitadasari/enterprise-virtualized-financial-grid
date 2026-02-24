@@ -164,10 +164,10 @@ function App() {
   ===================================================== */
 
   return (
-    <div className="app-container">
-      <h1>Enterprise Virtualized Financial Grid</h1>
+  <div className="app-container">
+    <h1>Enterprise Virtualized Financial Grid</h1>
 
-      {/* Merchant Filter */}
+    <div className="controls-bar">
       <input
         data-test-id="filter-merchant"
         placeholder="Filter Merchant"
@@ -175,12 +175,6 @@ function App() {
         onChange={(e) => setMerchantFilter(e.target.value)}
       />
 
-      {/* Filter Counter */}
-      <div data-test-id="filter-count">
-        Showing {filteredData.length} of {rawData.length} rows
-      </div>
-
-      {/* Quick Status Filters */}
       <button
         data-test-id="quick-filter-Completed"
         onClick={() => setStatusFilter("Completed")}
@@ -196,28 +190,31 @@ function App() {
       </button>
 
       <button onClick={() => setStatusFilter(null)}>
-        Clear Status Filter
+        Clear
       </button>
-
-      {/* Grid Header */}
-      <GridHeader
-        onSort={handleSort}
-        togglePin={togglePin}
-        pinnedColumns={pinnedColumns}
-      />
-
-      {/* Virtualized Grid */}
-      <VirtualGrid
-        data={filteredData}
-        selectedRows={selectedRows}
-        handleRowClick={handleRowClick}
-        pinnedColumns={pinnedColumns}
-        editingCell={editingCell}
-        setEditingCell={setEditingCell}
-        updateCellValue={updateCellValue}
-      />
     </div>
-  );
+
+    <div data-test-id="filter-count" className="filter-count">
+      Showing {filteredData.length} of {rawData.length} rows
+    </div>
+
+    <GridHeader
+      onSort={handleSort}
+      togglePin={togglePin}
+      pinnedColumns={pinnedColumns}
+    />
+
+    <VirtualGrid
+      data={filteredData}
+      selectedRows={selectedRows}
+      handleRowClick={handleRowClick}
+      pinnedColumns={pinnedColumns}
+      editingCell={editingCell}
+      setEditingCell={setEditingCell}
+      updateCellValue={updateCellValue}
+    />
+  </div>
+);
 }
 
 export default App;

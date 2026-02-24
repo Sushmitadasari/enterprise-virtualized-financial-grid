@@ -229,3 +229,15 @@ button:active {
 [data-test-id="debug-panel"] div {
   margin-bottom: 4px;
 }
+.controls-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.filter-count {
+  margin-bottom: 10px;
+  font-size: 13px;
+  color: #555;
+}
