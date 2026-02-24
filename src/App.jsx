@@ -1,13 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import VirtualGrid from "./components/VirtualGrid";
 import GridHeader from "./components/GridHeader";
 import { useDebounce } from "./hooks/useDebounce";
 import "./styles.css";
 
 function App() {
-  /* ===============================
+  /* =====================================================
      1️⃣ CORE STATE
-  =============================== */
+  ===================================================== */
 
   const [rawData, setRawData] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
@@ -16,16 +16,17 @@ function App() {
   const [editingCell, setEditingCell] = useState(null);
   const [pinnedColumns, setPinnedColumns] = useState(new Set());
 
-  /* ===============================
+  /* =====================================================
      2️⃣ FILTER STATE
-  =============================== */
+  ===================================================== */
 
   const [merchantFilter, setMerchantFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState(null);
   const debouncedMerchant = useDebounce(merchantFilter, 300);
 
-  /* ===============================
+  /* =====================================================
      3️⃣ LOAD DATA
-  =============================== */
+  ===================================================== */
 
   useEffect(() => {
     fetch("/transactions.json")
@@ -33,51 +34,72 @@ function App() {
       .then((data) => {
         setRawData(data);
         setFilteredData(data);
+      })
+      .catch(() => {
+        console.error("Failed to load transactions.json");
       });
   }, []);
 
-  /* ===============================
-     4️⃣ APPLY FILTERING (DEBOUNCED)
-  =============================== */
+  /* =====================================================
+     4️⃣ APPLY FILTERING (Merchant + Status Combined)
+  ===================================================== */
 
   useEffect(() => {
     if (!rawData.length) return;
 
-    const filtered = rawData.filter((row) =>
-      row.merchant
-        .toLowerCase()
-        .includes(debouncedMerchant.toLowerCase())
-    );
+    let updated = rawData;
 
-    setFilteredData(filtered);
-  }, [debouncedMerchant, rawData]);
+    // Merchant filter
+    if (debouncedMerchant) {
+      updated = updated.filter((row) =>
+        row.merchant
+          .toLowerCase()
+          .includes(debouncedMerchant.toLowerCase())
+      );
+    }
 
-  /* ===============================
+    // Status filter
+    if (statusFilter) {
+      updated = updated.filter((row) => row.status === statusFilter);
+    }
+
+    // Apply sorting again if active
+    if (sortConfig) {
+      const { key, direction } = sortConfig;
+
+      updated = [...updated].sort((a, b) => {
+        if (a[key] < b[key]) return direction === "asc" ? -1 : 1;
+        if (a[key] > b[key]) return direction === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+
+    setFilteredData(updated);
+  }, [debouncedMerchant, statusFilter, rawData, sortConfig]);
+
+  /* =====================================================
      5️⃣ SORTING
-  =============================== */
+  ===================================================== */
 
-  const handleSort = (key) => {
+  const handleSort = useCallback((key) => {
     let direction = "asc";
 
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === "asc") {
+    if (
+      sortConfig &&
+      sortConfig.key === key &&
+      sortConfig.direction === "asc"
+    ) {
       direction = "desc";
     }
 
-    const sorted = [...filteredData].sort((a, b) => {
-      if (a[key] < b[key]) return direction === "asc" ? -1 : 1;
-      if (a[key] > b[key]) return direction === "asc" ? 1 : -1;
-      return 0;
-    });
-
-    setFilteredData(sorted);
     setSortConfig({ key, direction });
-  };
+  }, [sortConfig]);
 
-  /* ===============================
-     6️⃣ ROW SELECTION
-  =============================== */
+  /* =====================================================
+     6️⃣ ROW SELECTION (Single + Ctrl/Cmd)
+  ===================================================== */
 
-  const handleRowClick = (id, event) => {
+  const handleRowClick = useCallback((id, event) => {
     setSelectedRows((prev) => {
       const newSet = new Set(prev);
 
@@ -91,30 +113,61 @@ function App() {
 
       return newSet;
     });
-  };
+  }, []);
 
-  /* ===============================
+  /* =====================================================
      7️⃣ COLUMN PINNING
-  =============================== */
+  ===================================================== */
 
-  const togglePin = (column) => {
+  const togglePin = useCallback((column) => {
     setPinnedColumns((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(column)) newSet.delete(column);
       else newSet.add(column);
       return newSet;
     });
+  }, []);
+
+  /* =====================================================
+     8️⃣ CELL EDITING
+  ===================================================== */
+
+  const updateCellValue = (rowIndex, key, value) => {
+    setFilteredData((prev) => {
+      const updated = [...prev];
+      updated[rowIndex] = {
+        ...updated[rowIndex],
+        [key]: value
+      };
+      return updated;
+    });
+
+    setRawData((prev) => {
+      const updated = [...prev];
+      const globalIndex = prev.findIndex(
+        (r) => r.id === filteredData[rowIndex].id
+      );
+      if (globalIndex !== -1) {
+        updated[globalIndex] = {
+          ...updated[globalIndex],
+          [key]: value
+        };
+      }
+      return updated;
+    });
+
+    setEditingCell(null);
   };
 
-  /* ===============================
-     8️⃣ RENDER
-  =============================== */
+  /* =====================================================
+     9️⃣ RENDER
+  ===================================================== */
 
   return (
-    <div>
+    <div className="app-container">
       <h1>Enterprise Virtualized Financial Grid</h1>
 
-      {/* Filter Input */}
+      {/* Merchant Filter */}
       <input
         data-test-id="filter-merchant"
         placeholder="Filter Merchant"
@@ -122,33 +175,38 @@ function App() {
         onChange={(e) => setMerchantFilter(e.target.value)}
       />
 
+      {/* Filter Counter */}
       <div data-test-id="filter-count">
         Showing {filteredData.length} of {rawData.length} rows
       </div>
 
-      {/* Quick Filters */}
+      {/* Quick Status Filters */}
       <button
         data-test-id="quick-filter-Completed"
-        onClick={() =>
-          setFilteredData(rawData.filter((r) => r.status === "Completed"))
-        }
+        onClick={() => setStatusFilter("Completed")}
       >
         Completed
       </button>
 
       <button
         data-test-id="quick-filter-Pending"
-        onClick={() =>
-          setFilteredData(rawData.filter((r) => r.status === "Pending"))
-        }
+        onClick={() => setStatusFilter("Pending")}
       >
         Pending
       </button>
 
-      {/* Header */}
-      <GridHeader onSort={handleSort} togglePin={togglePin} />
+      <button onClick={() => setStatusFilter(null)}>
+        Clear Status Filter
+      </button>
 
-      {/* Grid */}
+      {/* Grid Header */}
+      <GridHeader
+        onSort={handleSort}
+        togglePin={togglePin}
+        pinnedColumns={pinnedColumns}
+      />
+
+      {/* Virtualized Grid */}
       <VirtualGrid
         data={filteredData}
         selectedRows={selectedRows}
@@ -156,6 +214,7 @@ function App() {
         pinnedColumns={pinnedColumns}
         editingCell={editingCell}
         setEditingCell={setEditingCell}
+        updateCellValue={updateCellValue}
       />
     </div>
   );
